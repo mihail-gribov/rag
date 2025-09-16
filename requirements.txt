@@ -1,0 +1,38 @@
+# arXiv RAG System Dependencies
+# Core dependencies for arXiv integration and RAG functionality
+
+# arXiv API integration
+arxiv>=2.1.0
+
+# CLI interface
+click>=8.1.7
+
+# RAG framework
+langchain>=0.1.0
+
+# Vector database
+chromadb>=0.4.18
+
+# OpenAI API
+openai>=1.0.0
+
+# PDF processing
+pypdf2>=3.0.1
+
+# HTTP requests
+requests>=2.31.0
+
+# Environment management
+python-dotenv>=1.0.0
+
+# Markdown processing
+markdown>=3.5.1
+
+# Configuration management
+pyyaml>=6.0.1
+
+# Development dependencies
+pytest>=7.4.3
+pytest-cov>=4.1.0
+black>=23.11.0
+flake8>=6.1.0

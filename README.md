@@ -1,0 +1,150 @@
+# arXiv RAG System
+
+Простая и эффективная система для автоматического получения, индексации и анализа научных статей с arXiv.org.
+
+## Описание
+
+arXiv RAG System позволяет:
+- Автоматически загружать научные статьи с arXiv.org по заданным запросам
+- Быстро находить релевантную информацию в загруженных статьях
+- Получать ответы на вопросы на основе содержания статей
+- Управлять коллекцией статей через простой CLI интерфейс
+
+## Установка
+
+### Требования
+- Python 3.9+
+- uv (современный менеджер пакетов Python)
+
+### Быстрая установка
+```bash
+# Клонирование репозитория
+git clone <repository-url>
+cd arxiv-rag
+
+# Установка зависимостей
+uv sync
+
+# Активация виртуального окружения
+uv shell
+
+# Настройка API ключа
+cp env.example .env
+# Отредактируйте .env файл и добавьте ваш OpenAI API ключ
+```
+
+## Использование
+
+### Основные команды
+
+```bash
+# Загрузка статей с arXiv
+python cli.py fetch "machine learning transformers" --max-results 10
+
+# Поиск по загруженным статьям
+python cli.py search "What are the main advantages of transformers?"
+
+# Список загруженных статей
+python cli.py list
+
+# Очистка базы данных
+python cli.py clear
+```
+
+### Сохранение результатов
+
+```bash
+# Поиск с сохранением в файл
+python cli.py search "What is RAG?" --save-to-file
+
+# Поиск с сохранением в указанную директорию
+python cli.py search "LLM techniques" --save-to-file --output-dir ./reports/
+```
+
+## Структура проекта
+
+```
+arxiv-rag/
+├── cli.py               # CLI интерфейс
+├── arxiv_fetcher.py     # Получение статей с arXiv
+├── rag_engine.py        # RAG логика
+├── document_parser.py   # Парсер PDF документов
+├── markdown_formatter.py # Форматирование ответов в MD
+├── config.py            # Конфигурация
+├── logging_config.py    # Настройка логирования
+├── pyproject.toml       # Конфигурация проекта (uv)
+├── config.yaml          # Настройки приложения
+├── env.example          # Шаблон переменных окружения
+├── papers/             # Загруженные PDF файлы
+├── output/             # Сгенерированные ответы
+├── log/                # Логи приложения
+├── metadata/           # Метаданные документов
+└── tests/              # Тесты
+```
+
+## Конфигурация
+
+### Переменные окружения (.env)
+```bash
+# OpenAI API Configuration
+OPENAI_API_KEY=your_openai_api_key_here
+OPENAI_ORGANIZATION=your_organization_id_here
+
+# Optional: Custom model settings
+OPENAI_MODEL_NAME=gpt-3.5-turbo
+OPENAI_TEMPERATURE=0
+```
+
+### Настройки приложения (config.yaml)
+Основные настройки системы находятся в файле `config.yaml`:
+- Параметры arXiv API
+- Настройки обработки документов
+- Конфигурация RAG движка
+- Настройки ChromaDB
+- Пути к директориям
+
+## Разработка
+
+### Установка зависимостей для разработки
+```bash
+uv sync --dev
+```
+
+### Запуск тестов
+```bash
+uv run pytest
+```
+
+### Форматирование кода
+```bash
+uv run black .
+uv run flake8 .
+```
+
+### Добавление новых зависимостей
+```bash
+# Добавление основной зависимости
+uv add package-name
+
+# Добавление dev зависимости
+uv add --dev package-name
+```
+
+## Технологии
+
+- **Python 3.9+** - основной язык программирования
+- **uv** - управление зависимостями
+- **arXiv API** - получение научных статей
+- **LangChain** - RAG фреймворк
+- **ChromaDB** - векторная база данных
+- **OpenAI API** - LLM для генерации ответов
+- **Click** - CLI интерфейс
+- **PyPDF2** - парсинг PDF файлов
+
+## Лицензия
+
+MIT License
+
+## Поддержка
+
+Для вопросов и предложений создавайте issues в репозитории проекта.
