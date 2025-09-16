@@ -109,3 +109,8 @@ chroma_db/
 output/*.md
 log/*.log
 metadata/*.json
+
+# Development directories
+.propmpts/
+.cursor/
+.tickets/
