@@ -142,10 +142,24 @@ def search(ctx, question, papers_dir, save_to_file, output_dir):
                 click.echo("\nSources:")
                 click.echo("=" * 50)
                 for i, source in enumerate(result["sources"], 1):
+                    title = source.get("title", "Unknown Title")
+                    author = source.get("author", "Unknown Author")
+                    url = source.get("url", "")
+                    pdf_url = source.get("pdf_url", "")
                     filename = os.path.basename(source.get("file", "Unknown"))
-                    click.echo(f"{i}. {filename} (chunk {source.get('chunk_id', 0)})")
+                    chunk_id = source.get("chunk_id", 0)
+                    
+                    click.echo(f"{i}. {title}")
+                    click.echo(f"   Author: {author}")
+                    click.echo(f"   File: {filename} (chunk {chunk_id})")
+                    if url:
+                        click.echo(f"   arXiv: {url}")
+                    if pdf_url:
+                        click.echo(f"   PDF: {pdf_url}")
+                    
                     content_preview = source.get("content", "")[:100] + "..." if len(source.get("content", "")) > 100 else source.get("content", "")
-                    click.echo(f"   {content_preview}")
+                    click.echo(f"   Content: {content_preview}")
+                    click.echo()
         
     except Exception as e:
         error_msg = f"Search failed: {str(e)}"
