@@ -481,11 +481,6 @@ Answer:"""
                     title = doc.metadata.get("title", "").strip()
                     author = doc.metadata.get("author", "").strip()
                     
-                    # Generate arXiv URL if document_id looks like arXiv ID
-                    arxiv_url = None
-                    if document_id != "Unknown" and document_id.replace(".", "").replace("-", "").isdigit():
-                        arxiv_url = f"https://arxiv.org/abs/{document_id}"
-                    
                     # Generate PDF URL for arXiv documents
                     pdf_url = None
                     if document_id != "Unknown" and document_id.replace(".", "").replace("-", "").isdigit():
@@ -507,7 +502,6 @@ Answer:"""
                         ),
                         "title": title,
                         "document_id": document_id,
-                        "url": arxiv_url,
                         "pdf_url": pdf_url,
                         "file": doc.metadata.get("file", "Unknown"),
                         "chunk_id": doc.metadata.get("chunk_id", 0),

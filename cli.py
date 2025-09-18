@@ -144,7 +144,6 @@ def search(ctx, question, papers_dir, save_to_file, output_dir):
                 for i, source in enumerate(result["sources"], 1):
                     title = source.get("title", "Unknown Title")
                     author = source.get("author", "Unknown Author")
-                    url = source.get("url", "")
                     pdf_url = source.get("pdf_url", "")
                     filename = os.path.basename(source.get("file", "Unknown"))
                     chunk_id = source.get("chunk_id", 0)
@@ -152,8 +151,6 @@ def search(ctx, question, papers_dir, save_to_file, output_dir):
                     click.echo(f"{i}. {title}")
                     click.echo(f"   Author: {author}")
                     click.echo(f"   File: {filename} (chunk {chunk_id})")
-                    if url:
-                        click.echo(f"   arXiv: {url}")
                     if pdf_url:
                         click.echo(f"   PDF: {pdf_url}")
                     

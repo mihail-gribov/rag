@@ -299,8 +299,107 @@ class DocumentParser:
                             "creation_date": pdf_meta.get('/CreationDate', ''),
                             "modification_date": pdf_meta.get('/ModDate', ''),
                         })
+                    
+                    # If title and author are empty, try to extract from document text
+                    if not metadata.get("title") or not metadata.get("author"):
+                        try:
+                            # Extract text from first few pages to find title and author
+                            text_content = ""
+                            for i, page in enumerate(pdf_reader.pages[:3]):  # Check first 3 pages
+                                text_content += page.extract_text() + "\n"
+                            
+                            # Extract title and author from text
+                            extracted_metadata = self._extract_metadata_from_text(text_content, file_path.stem)
+                            metadata.update(extracted_metadata)
+                        except Exception as e:
+                            self.logger.warning(f"Failed to extract metadata from text: {e}")
             except Exception as e:
                 self.logger.warning(f"Could not extract PDF metadata from {file_path.name}: {e}")
+        
+        return metadata
+    
+    def _extract_metadata_from_text(self, text: str, document_id: str) -> Dict:
+        """
+        Extract title and author from document text
+        
+        Args:
+            text: Extracted text from document
+            document_id: Document ID (filename without extension)
+            
+        Returns:
+            Dictionary with extracted metadata
+        """
+        import re
+        
+        metadata = {}
+        
+        # Clean text
+        text = text.strip()
+        lines = text.split('\n')
+        
+        # Try to find title (usually the first non-empty line or after arXiv ID)
+        title = ""
+        title_lines = []
+        for line in lines[:20]:  # Check first 20 lines
+            line = line.strip()
+            if not line:
+                continue
+            
+            # Skip arXiv ID lines
+            if re.match(r'^\d{4}\.\d{4,5}(v\d+)?$', line):
+                continue
+            
+            # Skip common headers
+            if line.lower() in ['arxiv', 'preprint', 'submitted', 'accepted']:
+                continue
+            
+            # If line looks like a title (not too long, not all caps, not just numbers)
+            if (len(line) > 10 and len(line) < 200 and 
+                not line.isupper() and 
+                not re.match(r'^[\d\s\.\-]+$', line) and
+                not re.match(r'^[A-Z\s]+$', line)):
+                title_lines.append(line)
+                # If this looks like the end of title (ends with period or colon), stop
+                if line.endswith('.') or line.endswith(':') or len(title_lines) >= 3:
+                    break
+        
+        # Join title lines
+        if title_lines:
+            title = ' '.join(title_lines)
+            # Remove author names from title if they appear at the end
+            # Look for patterns like "Title Author Name, Author Name"
+            author_pattern = r'\s+[A-Z][a-z]+\s+[A-Z][a-z]+(?:\s*,\s*[A-Z][a-z]+\s+[A-Z][a-z]+)*$'
+            if re.search(author_pattern, title):
+                title = re.sub(author_pattern, '', title).strip()
+        
+        # Try to find author (look for patterns like "Author Name" or "Name, Name")
+        author = ""
+        for line in lines[:30]:  # Check first 30 lines
+            line = line.strip()
+            if not line:
+                continue
+            
+            # Skip lines that are clearly not author names
+            if re.search(r'abstract|introduction|conclusion|references|arxiv|preprint', line.lower()):
+                continue
+            
+            # Look for author patterns - multiple names separated by commas or "and"
+            if (re.search(r'[A-Z][a-z]+\s+[A-Z][a-z]+', line) and  # At least one "Name Name"
+                len(line) < 300 and
+                (',' in line or ' and ' in line or re.search(r'[A-Z][a-z]+\s+[A-Z][a-z]+.*[A-Z][a-z]+\s+[A-Z][a-z]+', line))):
+                author = line
+                break
+        
+        # Clean up extracted data
+        if title:
+            # Remove extra whitespace and clean up
+            title = re.sub(r'\s+', ' ', title).strip()
+            metadata["title"] = title
+        
+        if author:
+            # Remove extra whitespace and clean up
+            author = re.sub(r'\s+', ' ', author).strip()
+            metadata["author"] = author
         
         return metadata
     
