@@ -11,18 +11,26 @@ from pathlib import Path
 
 # Import required libraries with error handling
 try:
-    from langchain.embeddings import OpenAIEmbeddings
-    from langchain.vectorstores import Chroma
-    from langchain.chains import RetrievalQA
+    # Use working imports based on testing
+    from langchain_community.embeddings.openai import OpenAIEmbeddings
+    from langchain_community.vectorstores import Chroma
+    from langchain_core.documents import Document
     from langchain.llms import OpenAI
-    from langchain.schema import Document
+    from langchain_community.chat_models import ChatOpenAI
+    # Try to import RetrievalQA, but don't fail if it doesn't work
+    try:
+        from langchain.chains import RetrievalQA
+    except ImportError:
+        RetrievalQA = None
+        print("Warning: RetrievalQA not available, will use alternative approach")
 except ImportError:
     try:
-        # Try alternative imports for newer versions
-        from langchain_openai import OpenAIEmbeddings, OpenAI
-        from langchain_community.vectorstores import Chroma
+        # Fallback to older imports
+        from langchain.embeddings import OpenAIEmbeddings
+        from langchain.vectorstores import Chroma
         from langchain.chains import RetrievalQA
-        from langchain_core.documents import Document
+        from langchain.llms import OpenAI
+        from langchain.schema import Document
     except ImportError as e:
         print(f"Warning: LangChain not available: {e}")
         OpenAIEmbeddings = None
@@ -90,7 +98,20 @@ class ArxivRAGEngine:
                 raise ImportError("LangChain OpenAIEmbeddings not available")
 
             # Initialize OpenAI LLM
-            if OpenAI:
+            if ChatOpenAI:
+                # Use ChatOpenAI for chat models
+                self.llm = ChatOpenAI(
+                    openai_api_key=config.openai_api_key,
+                    openai_organization=config.openai_organization,
+                    model_name=config.rag.model_name,
+                    temperature=config.rag.temperature,
+                    max_tokens=config.rag.max_tokens
+                )
+                self.logger.info(
+                    f"OpenAI Chat LLM initialized with model: {config.rag.model_name}"
+                )
+            elif OpenAI:
+                # Fallback to old OpenAI for completion models
                 self.llm = OpenAI(
                     openai_api_key=config.openai_api_key,
                     openai_organization=config.openai_organization,
@@ -148,7 +169,12 @@ class ArxivRAGEngine:
                 )
                 self.logger.info("RetrievalQA chain initialized")
             else:
-                raise ImportError("LangChain RetrievalQA not available")
+                # Fallback: create a simple retriever without QA chain
+                self.retriever = self.vectorstore.as_retriever(
+                    search_kwargs={"k": config.rag.top_k}
+                )
+                self.qa_chain = None
+                self.logger.info("Simple retriever initialized (RetrievalQA not available)")
 
             self.logger.info(
                 f"ChromaDB vectorstore initialized at: {self.persist_directory}"
@@ -283,11 +309,44 @@ class ArxivRAGEngine:
         user_logger.info(f"User search query: {query}")
 
         try:
-            if not self.qa_chain:
-                return {"error": "QA chain not initialized"}
+            if not self.qa_chain and not hasattr(self, 'retriever'):
+                return {"error": "QA chain and retriever not initialized"}
 
-            # Perform search using QA chain
-            result = self.qa_chain({"query": query})
+            # Perform search using QA chain or simple retriever
+            if self.qa_chain:
+                result = self.qa_chain({"query": query})
+            else:
+                # Fallback: use simple retriever and manual LLM call
+                docs = self.retriever.get_relevant_documents(query)
+                if not docs:
+                    return {"error": "No relevant documents found"}
+                
+                # Create context from retrieved documents
+                context = "\n\n".join([doc.page_content for doc in docs])
+                
+                # Simple prompt for LLM
+                prompt = f"""Based on the following context, answer the question: {query}
+
+Context:
+{context}
+
+Answer:"""
+                
+                # Call LLM directly
+                if hasattr(self.llm, 'invoke'):
+                    # ChatOpenAI uses invoke method
+                    response = self.llm.invoke(prompt)
+                    if hasattr(response, 'content'):
+                        response = response.content
+                else:
+                    # Old OpenAI uses call method
+                    response = self.llm(prompt)
+                
+                # Format result to match QA chain output
+                result = {
+                    "result": response,
+                    "source_documents": docs
+                }
 
             response_time = time.time() - start_time
 

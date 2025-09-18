@@ -533,7 +533,7 @@ class ArxivRAGEngine:
     def __init__(self, persist_directory: str = "./chroma_db"):
         self.persist_directory = persist_directory
         self.embeddings = OpenAIEmbeddings()
-        self.llm = OpenAI(temperature=0, model_name="gpt-3.5-turbo")
+        self.llm = OpenAI(temperature=0, model_name="gpt-4o")
         self.parser = DocumentParser()
         self.vectorstore = None
         self.qa_chain = None
@@ -856,7 +856,7 @@ def setup_environment():
     if not os.path.exists(".env"):
         with open(".env", "w") as f:
             f.write("OPENAI_API_KEY=your_openai_api_key_here\n")
-            f.write("OPENAI_MODEL_NAME=gpt-3.5-turbo\n")
+            f.write("OPENAI_MODEL_NAME=gpt-4o\n")
             f.write("OPENAI_TEMPERATURE=0\n")
         print("Created .env file. Please add your OpenAI API key.")
     
@@ -1035,7 +1035,7 @@ INFO: Downloaded document: "Retrieval-Augmented Generation" (2023.12345)
 
 # Поиск с метриками
 INFO: Search query: "What is RAG?" - Response time: 3.2s
-INFO: Model: gpt-3.5-turbo, Tokens: 150 in, 200 out, Cost: $0.0012
+INFO: Model: gpt-4o, Tokens: 150 in, 200 out, Cost: $0.0012
 
 # Предупреждение о медленном запросе
 WARN: Slow response detected: 12.5s for query "complex question"
@@ -1528,7 +1528,7 @@ document:
   
 # Настройки RAG
 rag:
-  model_name: "gpt-3.5-turbo"
+  model_name: "gpt-4o"
   temperature: 0.0
   max_tokens: 1000
   top_k: 3
@@ -1581,7 +1581,7 @@ class DocumentConfig:
 
 @dataclass
 class RAGConfig:
-    model_name: str = "gpt-3.5-turbo"
+    model_name: str = "gpt-4o"
     temperature: float = 0.0
     max_tokens: int = 1000
     top_k: int = 3
@@ -2065,7 +2065,7 @@ try:
     response = rag_engine.search(query)
 except openai.RateLimitError as e:
     log_error(e,
-              context={"query": query, "model": "gpt-3.5-turbo"},
+              context={"query": query, "model": "gpt-4o"},
               user_action="search")
 ```
 
