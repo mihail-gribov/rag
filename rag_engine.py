@@ -477,16 +477,36 @@ Answer:"""
             # Extract source information
             if "source_documents" in result:
                 for doc in result["source_documents"]:
+                    document_id = doc.metadata.get("document_id", "Unknown")
+                    title = doc.metadata.get("title", "").strip()
+                    author = doc.metadata.get("author", "").strip()
+                    
+                    # Generate arXiv URL if document_id looks like arXiv ID
+                    arxiv_url = None
+                    if document_id != "Unknown" and document_id.replace(".", "").replace("-", "").isdigit():
+                        arxiv_url = f"https://arxiv.org/abs/{document_id}"
+                    
+                    # Fallback title if empty
+                    if not title:
+                        title = f"arXiv Paper {document_id}" if document_id != "Unknown" else "Unknown Document"
+                    
+                    # Fallback author if empty
+                    if not author:
+                        author = "Unknown Author"
+                    
                     source_info = {
                         "content": (
                             doc.page_content[:200] + "..."
                             if len(doc.page_content) > 200
                             else doc.page_content
                         ),
+                        "title": title,
+                        "document_id": document_id,
+                        "url": arxiv_url,
                         "file": doc.metadata.get("file", "Unknown"),
                         "chunk_id": doc.metadata.get("chunk_id", 0),
-                        "document_id": doc.metadata.get("document_id", "Unknown"),
-                        "filename": doc.metadata.get("filename", "Unknown")
+                        "filename": doc.metadata.get("filename", "Unknown"),
+                        "author": doc.metadata.get("author", "Unknown Author")
                     }
                     response["sources"].append(source_info)
 
