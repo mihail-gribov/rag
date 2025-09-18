@@ -232,6 +232,11 @@ class ArxivRAGEngine:
 
                     # Create documents for each chunk
                     for i, chunk in enumerate(chunks):
+                        # Skip empty chunks
+                        if not chunk or not chunk.strip():
+                            self.logger.warning(f"Skipping empty chunk {i} from {pdf_file.name}")
+                            continue
+                            
                         doc = Document(
                             page_content=chunk,
                             metadata={
@@ -314,15 +319,117 @@ class ArxivRAGEngine:
 
             # Perform search using QA chain or simple retriever
             if self.qa_chain:
-                result = self.qa_chain({"query": query})
+                try:
+                    result = self.qa_chain({"query": query})
+                except Exception as e:
+                    # If QA chain fails due to None page_content, fallback to manual approach
+                    self.logger.warning(f"QA chain failed, falling back to manual approach: {e}")
+                    try:
+                        docs = self.retriever.get_relevant_documents(query)
+                    except Exception as e2:
+                        # If retriever also fails, try direct vectorstore search
+                        self.logger.warning(f"Retriever also failed, trying direct vectorstore search: {e2}")
+                        try:
+                            # Try direct ChromaDB query to get raw results
+                            collection = self.vectorstore._collection
+                            query_embedding = self.embeddings.embed_query(query)
+                            results = collection.query(
+                                query_embeddings=[query_embedding],
+                                n_results=config.rag.top_k
+                            )
+                            
+                            # Extract documents from raw ChromaDB results
+                            docs = []
+                            if results['documents'] and results['documents'][0]:
+                                for i, content in enumerate(results['documents'][0]):
+                                    if content is not None and content.strip():
+                                        metadata = results['metadatas'][0][i] if results['metadatas'] and results['metadatas'][0] else {}
+                                        doc = Document(page_content=content, metadata=metadata)
+                                        docs.append(doc)
+                            
+                            if not docs:
+                                return {"error": "No valid documents found (all documents have empty content)"}
+                        except Exception as e3:
+                            return {"error": f"All search methods failed: {e3}"}
+                    
+                    if not docs:
+                        return {"error": "No relevant documents found"}
+                    
+                    # Filter out documents with None or empty page_content
+                    valid_docs = [doc for doc in docs if doc.page_content and doc.page_content.strip()]
+                    if not valid_docs:
+                        return {"error": "No valid documents found (all documents have empty content)"}
+                    
+                    # Create context from retrieved documents
+                    context = "\n\n".join([doc.page_content for doc in valid_docs])
+                    
+                    # Simple prompt for LLM
+                    prompt = f"""Based on the following context, answer the question: {query}
+
+Context:
+{context}
+
+Answer:"""
+                    
+                    # Log the full prompt
+                    self.logger.info(f"Full prompt sent to LLM (QA chain fallback):\n{prompt}")
+                    print(f"\n=== FULL PROMPT (QA CHAIN FALLBACK) ===\n{prompt}\n=== END PROMPT ===\n")
+                    
+                    # Call LLM directly
+                    if hasattr(self.llm, 'invoke'):
+                        # ChatOpenAI uses invoke method
+                        response = self.llm.invoke(prompt)
+                        if hasattr(response, 'content'):
+                            response = response.content
+                    else:
+                        # Old OpenAI uses call method
+                        response = self.llm(prompt)
+                    
+                    # Format result to match QA chain output
+                    result = {
+                        "result": response,
+                        "source_documents": valid_docs
+                    }
             else:
                 # Fallback: use simple retriever and manual LLM call
-                docs = self.retriever.get_relevant_documents(query)
+                try:
+                    docs = self.retriever.get_relevant_documents(query)
+                except Exception as e:
+                    # If retriever fails due to None page_content, try direct vectorstore search
+                    self.logger.warning(f"Retriever failed, trying direct vectorstore search: {e}")
+                    try:
+                        # Try direct ChromaDB query to get raw results
+                        collection = self.vectorstore._collection
+                        query_embedding = self.embeddings.embed_query(query)
+                        results = collection.query(
+                            query_embeddings=[query_embedding],
+                            n_results=config.rag.top_k
+                        )
+                        
+                        # Extract documents from raw ChromaDB results
+                        docs = []
+                        if results['documents'] and results['documents'][0]:
+                            for i, content in enumerate(results['documents'][0]):
+                                if content is not None and content.strip():
+                                    metadata = results['metadatas'][0][i] if results['metadatas'] and results['metadatas'][0] else {}
+                                    doc = Document(page_content=content, metadata=metadata)
+                                    docs.append(doc)
+                        
+                        if not docs:
+                            return {"error": "No valid documents found (all documents have empty content)"}
+                    except Exception as e2:
+                        return {"error": f"Both retriever and direct search failed: {e2}"}
+                
                 if not docs:
                     return {"error": "No relevant documents found"}
                 
+                # Filter out documents with None or empty page_content
+                valid_docs = [doc for doc in docs if doc.page_content and doc.page_content.strip()]
+                if not valid_docs:
+                    return {"error": "No valid documents found (all documents have empty content)"}
+                
                 # Create context from retrieved documents
-                context = "\n\n".join([doc.page_content for doc in docs])
+                context = "\n\n".join([doc.page_content for doc in valid_docs])
                 
                 # Simple prompt for LLM
                 prompt = f"""Based on the following context, answer the question: {query}
@@ -331,6 +438,10 @@ Context:
 {context}
 
 Answer:"""
+                
+                # Log the full prompt
+                self.logger.info(f"Full prompt sent to LLM:\n{prompt}")
+                print(f"\n=== FULL PROMPT ===\n{prompt}\n=== END PROMPT ===\n")
                 
                 # Call LLM directly
                 if hasattr(self.llm, 'invoke'):
@@ -345,7 +456,7 @@ Answer:"""
                 # Format result to match QA chain output
                 result = {
                     "result": response,
-                    "source_documents": docs
+                    "source_documents": valid_docs
                 }
 
             response_time = time.time() - start_time
