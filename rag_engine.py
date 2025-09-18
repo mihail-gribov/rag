@@ -486,6 +486,11 @@ Answer:"""
                     if document_id != "Unknown" and document_id.replace(".", "").replace("-", "").isdigit():
                         arxiv_url = f"https://arxiv.org/abs/{document_id}"
                     
+                    # Generate PDF URL for arXiv documents
+                    pdf_url = None
+                    if document_id != "Unknown" and document_id.replace(".", "").replace("-", "").isdigit():
+                        pdf_url = f"https://arxiv.org/pdf/{document_id}.pdf"
+                    
                     # Fallback title if empty
                     if not title:
                         title = f"arXiv Paper {document_id}" if document_id != "Unknown" else "Unknown Document"
@@ -503,10 +508,11 @@ Answer:"""
                         "title": title,
                         "document_id": document_id,
                         "url": arxiv_url,
+                        "pdf_url": pdf_url,
                         "file": doc.metadata.get("file", "Unknown"),
                         "chunk_id": doc.metadata.get("chunk_id", 0),
                         "filename": doc.metadata.get("filename", "Unknown"),
-                        "author": doc.metadata.get("author", "Unknown Author")
+                        "author": author
                     }
                     response["sources"].append(source_info)
 
